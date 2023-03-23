@@ -28,7 +28,7 @@ nhebart <- function(formula,
                    # X is the feature matrix, y is the target,
                    # groups, # groups is the group number of each obs
                    num_trees = 4, # Number of trees
-                   control = list(node_min_size = 5), # Size of smallest nodes
+                   control = list(node_min_size = 2), # Size of smallest nodes
                    priors = list(
                      alpha = 0.95, # Prior control list
                      beta = 2,
@@ -393,7 +393,13 @@ nhebart <- function(formula,
     )
     tau_gamma <- 1 / (sigma_gamma^2)
     
-    #tau_gamma <- 1.5
+    
+    # tau         = 1
+    # tau_phi     = 3 
+    # tau_mu      = 3
+    # tau_gamma   = 2
+    
+  
     # The end ---------
 
     # Get the overall log likelihood -- UPDATE HERE

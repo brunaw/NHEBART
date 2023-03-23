@@ -131,16 +131,28 @@ simulate_mu_hebart <- function(tree, R,
     M_2_j <- M_2[tree$node_indices == which_terminal[i], , drop = FALSE]
     R_j <- R[tree$node_indices == which_terminal[i], drop = FALSE]
     
-    Psi_R <- (diag(nj[i])/tau + 
-                tcrossprod(M_1_j)/(num_trees*tau_gamma) +
-                tcrossprod(M_2_j)/(num_trees*tau_phi))
-    ones <- rep(1, nj[i])
+    # Psi_R OK
+    #Psi_R <- (diag(nj[i])/tau + 
+    #            tcrossprod(M_1_j)/(num_trees*tau_gamma) +
+    #            tcrossprod(M_2_j)/(num_trees*tau_phi))
     
-    Prec_bit <- t(ones)%*%solve(Psi_R, ones) + tau_mu
-    mean <- t(ones)%*%solve(Psi_R, R_j) / Prec_bit
+    # ANDREW, 23/03/2023
+    M1M1T <- tcrossprod(M_1_j)
+    M2M2T <- tcrossprod(M_2_j)
+    Delta_R <- diag(nj[i])/tau + M1M1T/(num_trees * tau_gamma)
+    Psi_R <- Delta_R + M2M2T/(num_trees * tau_phi)
+    
+    prec <- sum(solve(Psi_R)) + tau_mu
+    mean <- sum(solve(Psi_R, R_j)) / prec
+    
+    # INSTEAD OF:
+    # ones <- rep(1, nj[i])
+    # Prec_bit <- t(ones)%*%solve(Psi_R, ones) + tau_mu
+    # mean <- t(ones)%*%solve(Psi_R, R_j) / Prec_bit
+    
     tree$tree_matrix[which_terminal[i], "mu"] <- stats::rnorm(1,
                                                               mean,
-                                                              sd = 1/sqrt(Prec_bit))
+                                                              sd = 1/sqrt(prec))
   }
   tree$tree_matrix[which_non_terminal, "mu"] <- NA
   
@@ -188,15 +200,22 @@ simulate_phi_hebart <- function(tree, R, groups,
     delta_R <- diag(nj[i])/tau + tcrossprod(curr_M1)/(num_trees*tau_gamma)
     n_groups <- colSums(curr_M2)
     
-    Prec_one <- solve(t(curr_M2)%*%solve(delta_R, curr_M2) + (num_trees*tau_phi*diag(num_groups)))
-    Prec_two <- (tau*t(curr_M2) %*% curr_R + (num_trees*tau_phi)*curr_mu)/n_groups
+    #Prec_one <- solve(t(curr_M2)%*%solve(delta_R, curr_M2) + (num_trees*tau_phi*diag(num_groups)))
+    #Prec_two <- (tau*t(curr_M2) %*% curr_R + (num_trees*tau_phi)*curr_mu)
     
-    mean <- Prec_one %*% Prec_two             
+    #Prec_one <- solve(t(curr_M2)%*%solve(delta_R, curr_M2) + (num_trees*tau_phi*diag(num_groups)))
+    #Prec_two <- (t(curr_M2) %*% solve(delta_R, curr_R) + (num_trees*tau_phi)*curr_mu)
+    #mean <- Prec_one %*% Prec_two             
+    
+    # Same as before
+    Prec_one <- t(curr_M2)%*%solve(delta_R, curr_M2) + (num_trees*tau_phi) * diag(num_groups)
+    mean <- solve(Prec_one, (t(curr_M2)%*%solve(delta_R, curr_R) + (num_trees*tau_phi*curr_mu)))
+    
     
     tree$tree_matrix[which_terminal[i], 
                      sort(group_col_names)] <- mvnfast::rmvn(1,
                                                              mu = mean[, 1],
-                                                             sigma = Prec_one)
+                                                             sigma = solve(Prec_one))
     
   }
   
@@ -262,17 +281,20 @@ simulate_gamma_hebart <- function(tree, R, groups, subgroups,
         colnames(curr_M1) <- which_M1
       }
 
-      Prec_one <- solve((tau * t(curr_M1) %*% curr_M1) + (tau_gamma * num_trees * diag(ncol(curr_M1))))
-      Prec_two <- ((tau * t(curr_M1) %*% curr_R) + (tau_gamma * num_trees * curr_phi))
-
-      mean <- Prec_one %*% Prec_two    
+      #Prec_one <- solve((tau * t(curr_M1) %*% curr_M1) + (tau_gamma * num_trees * diag(ncol(curr_M1))))
+      #Prec_two <- ((tau * t(curr_M1) %*% curr_R) + (tau_gamma * num_trees * curr_phi))
+      #mean <- Prec_one %*% Prec_two    
+      
+      prec <- tau * crossprod(curr_M1) + tau_gamma * num_trees * diag(ncol(curr_M1))
+      mean <- solve(prec, tau * t(curr_M1) %*% curr_R + tau_gamma * num_trees * curr_phi)
+      
       subgroup_col_names_n <- stringr::str_remove_all(colnames(curr_M1), "factor\\(subgroups\\)")
       subgroup_col_names_n <- paste0("gamma", subgroup_col_names_n)
       
       tree$tree_matrix[which_terminal[i], 
                        sort(subgroup_col_names_n)] <- mvnfast::rmvn(1,
                                                                   mu = mean[, 1],
-                                                                  sigma = Prec_one)
+                                                                  sigma = solve(prec))
       
     } 
   }

@@ -1,4 +1,5 @@
 library(tidyverse)
+devtools::load_all(".")
 # Simulate some data from a nested HEBART model
 
 # I'm going to assume the data are simulated from a sum of two trees
@@ -119,7 +120,7 @@ data <- data.frame(
 group_variable = "group"
 subgroup_variable = "subgroup"
 formula = y ~ x1 + x2
-num_trees <- 2
+num_trees <- 1
 
 tau         = 1
 tau_phi     = 3 
@@ -144,20 +145,23 @@ hb_model <- nhebart(formula,
                       scale_sigma_gamma = 1
                     ), 
                     inits = list(tau         = 1,
-                                 tau_phi     = 1, 
+                                 tau_phi     = 3, 
                                  sigma_phi   = 1,
                                  sigma_gamma = 1),
                     MCMC = list(iter = 500, # Number of iterations
-                                burn = 20, # Size of burn in
+                                burn = 50, # Size of burn in
                                 thin = 1,
                                 sigma_phi_sd   = 2,
                                 sigma_gamma_sd = 2)
 )
-hb_model$trees[[4]]
+#hb_model$trees[[10]]
+hb_model
 hb_model$rmse
 hb_model$mse
-hb_model$tau
+1/hb_model$tau
+
 1/sqrt(hb_model$sigma_gamma)
+#1/sqrt(hb_model$sigma_gamma)
 pp <- predict_nhebart(newX = data, 
                       new_groups = data$group, 
                       new_subgroups = data$subgroup,
