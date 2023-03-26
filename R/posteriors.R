@@ -193,6 +193,7 @@ simulate_phi_hebart <- function(tree, R, groups,
   # Get the group means in each terminal node
   # Doing this with loops but probably can be faster
   for (i in 1:length(nj)) {
+    
     curr_R <- R[tree$node_indices == which_terminal[i]]
     curr_mu <- tree$tree_matrix[which_terminal[i], "mu"]
     curr_M2 <- M_2[tree$node_indices == which_terminal[i], , drop = FALSE]
@@ -213,9 +214,9 @@ simulate_phi_hebart <- function(tree, R, groups,
     
     
     tree$tree_matrix[which_terminal[i], 
-                     sort(group_col_names)] <- mvnfast::rmvn(1,
-                                                             mu = mean[, 1],
-                                                             sigma = solve(Prec_one))
+                     sort(group_col_names)] <- rnorm(length(mean[, 1]),
+                                                     mean = mean[, 1],
+                                                     sd = sqrt(1/diag(Prec_one)))
     
   }
   
@@ -240,9 +241,10 @@ simulate_phi_hebart <- function(tree, R, groups,
 #' @param M_1 The subgroup allocation matrix
 #' @param M_2 The group allocation matrix
 #' @param num_trees The  number of trees
+#' @param nesting The group nesting vector
 simulate_gamma_hebart <- function(tree, R, groups, subgroups, 
                                 tau, tau_mu, tau_phi, tau_gamma, 
-                                M_1, M_2, num_trees) {
+                                M_1, M_2, num_trees, nesting) {
   
   
   # Simulate the group mu values for a given tree
@@ -266,37 +268,25 @@ simulate_gamma_hebart <- function(tree, R, groups, subgroups,
   # Get the group means in each terminal node
   # Doing this with loops but probably can be faster
   for (i in 1:length(nj)) {
-    for(name in group_names){
-      which_group <- which(groups == name)
-      curr_R <- R[which_group]
-      curr_M1 <- M_1[which_group, , drop = FALSE]
-      # Get only the columns within that group
-      which_M1 <-  colnames(curr_M1) [colSums(curr_M1) > 0]
-      curr_M1 <- curr_M1[, colSums(curr_M1) > 0]
-      group_name <- paste0("phi", name)
-      curr_phi <- tree$tree_matrix[which_terminal[i], group_name]
-      
-      if(is.vector(curr_M1)){
-        curr_M1 <- matrix(curr_M1)
-        colnames(curr_M1) <- which_M1
-      }
-
-      #Prec_one <- solve((tau * t(curr_M1) %*% curr_M1) + (tau_gamma * num_trees * diag(ncol(curr_M1))))
-      #Prec_two <- ((tau * t(curr_M1) %*% curr_R) + (tau_gamma * num_trees * curr_phi))
-      #mean <- Prec_one %*% Prec_two    
-      
-      prec <- tau * crossprod(curr_M1) + tau_gamma * num_trees * diag(ncol(curr_M1))
-      mean <- solve(prec, tau * t(curr_M1) %*% curr_R + tau_gamma * num_trees * curr_phi)
-      
-      subgroup_col_names_n <- stringr::str_remove_all(colnames(curr_M1), "factor\\(subgroups\\)")
-      subgroup_col_names_n <- paste0("gamma", subgroup_col_names_n)
-      
-      tree$tree_matrix[which_terminal[i], 
-                       sort(subgroup_col_names_n)] <- mvnfast::rmvn(1,
-                                                                  mu = mean[, 1],
-                                                                  sigma = solve(prec))
-      
-    } 
+    
+    curr_R <- R[tree$node_indices == which_terminal[i]]
+    curr_M2 <- M_2[tree$node_indices == which_terminal[i], , drop = FALSE]
+    curr_M1 <- M_1[tree$node_indices == which_terminal[i], , drop = FALSE]
+    prec_gamma <- tau * crossprod(curr_M1) + tau_gamma * num_trees * diag(num_subgroups)
+    curr_phi <- tree$tree_matrix[which_terminal[i], group_col_names]
+    # which subgroups correspond to which groups? 
+    curr_phi <- curr_phi[nesting]
+    mean <- solve(prec_gamma, tau * t(curr_M1) %*% curr_R + tau_gamma * num_trees * curr_phi)
+    
+    subgroup_col_names_n <- stringr::str_remove_all(colnames(curr_M1), "factor\\(subgroups\\)")
+    subgroup_col_names_n <- paste0("gamma", subgroup_col_names_n)
+    
+    tree$tree_matrix[which_terminal[i], 
+                     sort(subgroup_col_names_n)] <- rnorm(length(mean[, 1]),
+                                                          mean = mean[, 1],
+                                                          sd = sqrt(1/diag(prec_gamma)))
+    
+    
   }
   
   tree$tree_matrix[which_non_terminal, sort(subgroup_col_names)] <- NA

@@ -204,8 +204,8 @@ grow_tree <- function(X, y, num_groups, curr_tree, node_min_size) {
   split_value <- sample(available_values[-c(1, length(available_values))], 1)
   } 
   
-  split_value <- 0.5
-  split_variable <- 2
+  #split_value <- 0.5
+  #split_variable <- 1
   curr_parent <- new_tree$tree_matrix[node_to_split, "parent"] # Make sure to keep the current parent in there. Will be NA if at the root node
   new_tree$tree_matrix[node_to_split, 1:6] <- c(
     0, # Now not temrinal

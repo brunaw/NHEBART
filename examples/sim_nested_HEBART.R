@@ -74,6 +74,7 @@ tree_fun1 <- function(x1, x2, group, subgroup) {
   }
   return(ans)
 }
+
 tree_fun2 <- function(x1, x2, group, subgroup) {
   ans <- if(x2 < 0.5 ) {
     lambdas[[2]][[1]][[group]][subgroup]
@@ -88,7 +89,7 @@ y <- rep(NA, length = n_obs)
 
 for (i in 1:n_obs) {
   y[i] <- rnorm(1, mean = 
-                  #tree_fun1(x1[i], x2[i], group[i], sub_group[i]) + 
+                  tree_fun1(x1[i], x2[i], group[i], sub_group[i]) + 
                   tree_fun2(x1[i], x2[i], group[i], sub_group[i]), 
                 sd = 1 / sqrt(tau))
 }
@@ -120,7 +121,7 @@ data <- data.frame(
 group_variable = "group"
 subgroup_variable = "subgroup"
 formula = y ~ x1 + x2
-num_trees <- 1
+num_trees <- 6
 
 tau         = 1
 tau_phi     = 3 
@@ -148,7 +149,7 @@ hb_model <- nhebart(formula,
                                  tau_phi     = 3, 
                                  sigma_phi   = 1,
                                  sigma_gamma = 1),
-                    MCMC = list(iter = 500, # Number of iterations
+                    MCMC = list(iter =200, # Number of iterations
                                 burn = 50, # Size of burn in
                                 thin = 1,
                                 sigma_phi_sd   = 2,
@@ -169,7 +170,11 @@ pp <- predict_nhebart(newX = data,
                       type = "mean")
 sqrt(mean((pp - data$y)^2)) # 1.907164
 cor(pp, data$y)  #
-  
-  
+#----------------------------------------------------------------------  
+lme_ss <- lme4::lmer(y ~ x1 + x2 + (1|group) + (1|group:subgroup), data)
+pplme <- predict(lme_ss, data)
+sqrt(mean((pplme - data$y)^2)) # 3.991818
+cor(pplme, data$y) # 0.936175
+
   
   

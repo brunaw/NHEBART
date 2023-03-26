@@ -83,6 +83,10 @@ nhebart <- function(formula,
   mf <- stats::model.frame(formula_int, data = data)
   X <- as.matrix(stats::model.matrix(formula_int, mf))
   y <- stats::model.extract(mf, "response")
+  nesting <- data |> 
+    dplyr::group_by(group, subgroup) |> 
+    dplyr::slice(1) |> 
+    dplyr::pull(group)
   #-------------------------------------------------------
   # Extract control parameters
   node_min_size <- control$node_min_size
@@ -253,14 +257,15 @@ nhebart <- function(formula,
           )
       } else {
         current_partial_residuals <- y_scale
+        #current_partial_residuals <- y
       }
-
+      
+      
       # Propose a new tree via grow/change/prune/swap
       #type <- sample(c("grow", "prune", "change", "swap"), 1)
       if (i < max(floor(0.1 * burn), 10)) type <- "grow" # Grow for the first few iterations
 
-      type <- sample(c("grow", "prune"), 1, prob = c(0.75, 0.25))
-      
+      type <- sample(c("grow", "prune"), 1, prob = c(0.50, 0.50))
       # Get a new tree!
       new_trees <- curr_trees
 
@@ -344,7 +349,8 @@ nhebart <- function(formula,
         tau_gamma,
         M_1, 
         M_2,
-        num_trees
+        num_trees, 
+        nesting = nesting
       )
       
 
@@ -392,13 +398,7 @@ nhebart <- function(formula,
       sigma_gamma_sd = 0.3, S1, S2
     )
     tau_gamma <- 1 / (sigma_gamma^2)
-    
-    
-    # tau         = 1
-    # tau_phi     = 3 
-    # tau_mu      = 3
-    # tau_gamma   = 2
-    
+  
   
     # The end ---------
 
