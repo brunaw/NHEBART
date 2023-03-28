@@ -1,5 +1,7 @@
+library(latex2exp)
 library(tidyverse)
 library(tidymodels)
+library(firatheme)
 devtools::load_all(".")
 # Simulate some data from a nested HEBART model
 
@@ -15,8 +17,8 @@ simulate_tree <- function(x, n_obs = 500){
   n_groups_nested <- c(3, 2, 5, 3)
   n_trees <- 2
   n_terminal_nodes <- c(3, 2)
-  x1 <- runif(n_obs)
-  x2 <- runif(n_obs)
+  x1 <- rnorm(n_obs)
+  x2 <- rnorm(n_obs)
   group <- sample(1:n_groups, size = n_obs, replace = TRUE)
   sub_group <- rep(NA, length = length(group))
   for(i in 1:length(group)) {
@@ -62,8 +64,9 @@ simulate_tree <- function(x, n_obs = 500){
   
   # Write the functions for each of the trees
   tree_fun1 <- function(x1, x2, group, subgroup) {
+    
     ans <- if(x1 < 0 & x2 < 0) {
-      lambda[[1]][[1]][[group]][subgroup]
+      lambdas[[1]][[1]][[group]][subgroup]
     } else if(x1 < 0 & x2 >= 0) {
       lambdas[[1]][[2]][[group]][subgroup]
     } else {
@@ -102,7 +105,6 @@ simulate_tree <- function(x, n_obs = 500){
   return(data)
   
 } 
-
 
 data_all <- tibble(
   data = map(1:10, simulate_tree)
@@ -156,16 +158,21 @@ run_nhebart <- function(train, test){
   return(list(pred = pp, rmse = rmse, hb_model = hb_model))
 }
 
+wrong <- data_model3 |> 
+  slice(4) |>
+  mutate(nh = map2(train, test, run_nhebart), 
+         pred_nh = map(nh, "pred"),
+         rmse_nh = map_dbl(nh, "rmse"))
+
+
 data_model3 <- data_all |> 
   mutate(nh = map2(train, test, run_nhebart), 
          pred_nh = map(nh, "pred"),
          rmse_nh = map_dbl(nh, "rmse"))
-data_model3$rmse_nh
-
 
 
 predict_lme <- function(train, test){
-  lme_ss <- lme4::lmer(y ~ x1 + x2 + (1|group) + (1|group/subgroup), train)
+  lme_ss <- lme4::lmer(y ~ x1 + x2 + (1|group) + (1|group:subgroup), train)
   pplme <- predict(lme_ss, test)
   rmse_lmer <- sqrt(mean((pplme - test$y)^2)) # 6.64
   return(list(pred = pplme, rmse = rmse_lmer))
@@ -180,7 +187,74 @@ data_model4$rmse_lme
 
 write_rds(data_model4, file = "results/simple_example.rds")
 #------------------------------------------------------------------------
+# Plots 
+data_model4 |>
+  dplyr::select(rmse_nh, rmse_lme) |> 
+  tidyr::pivot_longer(cols = c(rmse_nh, rmse_lme)) |> 
+  mutate(name = str_remove(name, "rmse\\_"), 
+         name = str_replace(name, "nh", "Nested-RE HEBART"),
+         name = str_to_upper(name)) |> 
+  ggplot(aes(y = value, x = name)) +
+  geom_boxplot(fill = "#F96209", alpha = 0.7) +
+  #facet_wrap(~type, scales = 'free') +
+  labs(y = "Estimated test RMSE", 
+       x = 'Algorithms'
+  ) + 
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  theme_fira()
 
+ggsave(file = "examples/images/boxplot_simulated.png", width = 4, height = 3)
+#----------------------------------------------------------------------
+#----------------------------------------------------------------------
+
+sigma_plots <- data_model4 |> 
+  mutate(
+    model     = map(nh, "hb_model"), 
+    sigma_phi = map(model, "sigma_phi"),
+    sigma_gamma = map(model, "sigma_gamma"),
+    id = 1:n() 
+  ) |> 
+  dplyr::select(sigma_phi, sigma_gamma, id) |> 
+  unnest(c(sigma_phi,sigma_gamma)) |> 
+  group_by(id) |> 
+  mutate(iter = 1:n()) |> 
+  group_by(iter) |>
+  summarise(sigma_phi = mean(sigma_phi), 
+            sigma_gamma = mean(sigma_gamma)) |>  
+  pivot_longer(cols = c(sigma_phi, sigma_gamma)) |> 
+  group_by(name) |>
+  mutate(mean = mean(value)) |> 
+  filter(iter > 100)
+
+# 
+# tau_mu <- 3
+# tau_phi <- 3 
+# tau_gamma <- 2
+# tau <- 1
+# 
+# true_sigma_phi   <- 1/sqrt(tau_phi)
+# true_sigma_gamma <- 1/sqrt(tau_gamma)
+sqrt(1/tau_gamma)
+sqrt(1/tau_gamma)
+
+sigma_plots$name <- as.factor(sigma_plots$name)
+levels(sigma_plots$name) <- c(sigma_gamma = TeX("$\\sigma_{\\gamma}$"), sigma_phi = TeX("$\\sigma_{\\phi}$"))
+
+sigma_plots |> 
+  ggplot(aes(x = value)) +
+  geom_density(fill = "#F96209", alpha = 0.7) +
+  facet_wrap(~name, scales = "free", 
+             labeller = label_parsed) +
+  geom_vline(aes(xintercept = mean), linetype = 'dashed') +
+  labs(y = "Estimated densities", 
+       x = 'Posterior sampled values'
+  ) + 
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 7)) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  theme_fira()
+
+ggsave(file = "examples/images/sigma_densities.png", width = 4, height = 3)
+#------------------------------------------------------------------
 
 
 
