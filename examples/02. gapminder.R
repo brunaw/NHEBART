@@ -46,6 +46,7 @@ df_real <- df_real |>
 #-------------------------------------------------------------------------
 
 run_gapminder <- function(x){
+  years <- unique(df_real$years)
   to_remove   <- sample(years, 15)
   train       <- df_real |> filter(!(X1 %in% to_remove))
   test        <- df_real |> filter(X1 %in% to_remove)
@@ -120,7 +121,7 @@ new_lme <- function(train, test){
   
   lme_ss <- me_ss <- lme4::lmer(y ~ X1 + X2 + (X1 | continent) + (X1 |continent:country), train)
   pplme <- predict(lme_ss, test)
-  rmse_lmer <- sqrt(mean((pplme - test$y)^2)) # 3.991818
+  rmse_lmer <- sqrt(mean((pplme - test$y)^2)) 
   
   return(list(lme_model_new = lme_ss, 
               rmse_lme_new = rmse_lmer, 
