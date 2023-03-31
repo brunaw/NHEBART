@@ -54,7 +54,7 @@ num_trees   <- 6
 # Model parameters -----------------------------------
 group_variable <-  "num_continent"
 subgroup_variable <-  "num_country"
-formula        <- y ~ X1 + X2
+formula        <- y ~ X1 
 
 # Running the model ----------------------------------
 hb_model <- nhebart(formula,
@@ -94,7 +94,7 @@ pp <- predict_nhebart(newX = test,
 rmse_nhebart <-  sqrt(mean((pp - test$y)^2))
 test$preds <- pp
 
-lme_ss <- lme4::lmer(y ~ X1 + X2 + (X1|continent) + (X1|continent:country), train)
+lme_ss <- lme4::lmer(y ~ X1 + (X1|continent) + (X1|continent:country), train)
 pplme <- predict(lme_ss, test)
 rmse_lmer <- sqrt(mean((pplme - test$y)^2)) 
 
